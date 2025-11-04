@@ -1,75 +1,257 @@
 <!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Tech Recovery Hub — Buy Verified Gmail Accounts</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Helvetica,Arial;margin:24px;background:#f7f7f8;color:#0b1220}
+  .card{max-width:720px;margin:0 auto;background:#fff;padding:22px;border-radius:10px;box-shadow:0 6px 18px rgba(9,30,66,0.06)}
+  label{display:block;margin-top:12px;font-weight:600}
+  input,select,textarea,button{width:100%;padding:10px;margin-top:8px;border-radius:8px;border:1px solid #e2e8f0}
+  button{background:#1f6feb;color:#fff;border:0;cursor:pointer}
+  .small{font-size:13px;color:#556070;margin-top:8px}
+  #checkoutSection{display:none;margin-top:12px}
+  .pay-option{padding:12px;border-radius:8px;border:1px solid #e6edf8;margin-top:8px;cursor:pointer}
+  .pay-option:hover{background:#f8fbff}
+  .qr{display:block;margin:12px auto;max-width:220px}
+  #overlay{position:fixed;left:0;top:0;width:100%;height:100%;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.45)}
+  #overlay .box{background:#fff;padding:22px;border-radius:12px;max-width:400px;text-align:center}
+</style>
 </head>
 <body>
-<div class="card">
-<h2>Tech Recovery Hub — Buy Verified Gmail Accounts</h2>
-<p class="small">Payment via Bank transfer / QR (local) or PayPal (international). After payment confirmation, we will deliver your accounts as a downloadable .txt file.</p>
+  <div class="card">
+    <h2>Tech Recovery Hub — Buy Verified Gmail Accounts</h2>
+    <p class="small">Payment via Bank transfer / QR (local) or PayPal (international). After you upload proof and we confirm payment, accounts will be delivered to your email as a downloadable .txt file.</p>
 
+    <form id="orderForm">
+      <label>Full name
+        <input name="name" required placeholder="Your full name" />
+      </label>
 
-<form id="orderForm">
-<label>Full name
-<input name="name" required />
-</label>
-<label>Email to receive file
-<input name="email" type="email" required />
-</label>
-<label>Quantity
-<select name="quantity">
-<option value="1">1</option>
-<option value="5" selected>5</option>
-<option value="10">10</option>
-</select>
-</label>
-<label>Payment method
-<select name="payment">
-<option value="bank">Bank transfer / QR</option>
-<option value="paypal">PayPal</option>
-</select>
-</label>
-<label>Notes / Proof link (optional)
-<input name="proof" placeholder="Optional: paste proof link or notes" />
-</label>
+      <label>Email to receive file
+        <input name="email" type="email" required placeholder="you@example.com" />
+      </label>
 
+      <label>Quantity
+        <select name="quantity">
+          <option value="1">1</option>
+          <option value="5" selected>5</option>
+          <option value="10">10</option>
+        </select>
+      </label>
 
-<button type="submit">Submit Order</button>
-</form>
+      <label>Payment method
+        <select name="payment" id="paymentSelect">
+          <option value="bank">Bank transfer / QR</option>
+          <option value="paypal">PayPal</option>
+        </select>
+      </label>
 
+      <div id="paymentHint" class="small">
+        Bank demo QR below. Replace with actual QR after deploy.
+      </div>
 
-<p class="small">Bank details (example):<br/>Bank XYZ — Account: TECHRECOVERY — 0123456789 — Use order ID in payment note.</p>
-</div>
+      <div id="checkoutTrigger" style="margin-top:14px">
+        <button type="button" id="continueBtn">Continue to Checkout</button>
+      </div>
+    </form>
 
+    <div id="checkoutSection">
+      <h3>Checkout</h3>
+      <div id="paymentOptions">
+        <div class="pay-option" id="bankOption">🏦 Pay via Bank / QR</div>
+        <div class="pay-option" id="paypalOption">💳 Pay with PayPal</div>
+      </div>
+
+      <div id="paymentDetails"></div>
+
+      <div style="margin-top:12px">
+        <label style="font-weight:600">
+          <input type="checkbox" id="paidCheck" /> I have paid (attach proof)
+        </label>
+
+        <div id="proofUpload" style="display:none;margin-top:8px">
+          <input type="file" id="proofFile" accept="image/*" />
+          <p class="small">Upload screenshot of transfer or PayPal receipt. Max file size: 5MB.</p>
+        </div>
+
+        <button id="submitOrderBtn" style="margin-top:12px">Submit Order</button>
+      </div>
+
+      <div id="resultMsg" class="small" style="margin-top:12px"></div>
+    </div>
+
+    <p class="small" style="margin-top:16px">Bank demo details (example):<br/>Account: TECHRECOVERY — Bank XYZ — Use Order ID in note.</p>
+    <p class="small">YouTube: <a href="https://youtube.com/@TechRecoveryHub" target="_blank">Tech Recovery Hub</a></p>
+  </div>
+
+  <div id="overlay">
+    <div class="box">
+      <div id="overlayText">Please wait — uploading your order. This may take a while. Do not refresh the page.</div>
+      <div id="overlaySpinner" style="margin-top:12px">⏳</div>
+    </div>
+  </div>
 
 <script>
-// Replace with your deployed Apps Script Web App URL
-const SCRIPT_URL = 'REPLACE_WITH_SCRIPT_URL';
+/*
+  IMPORTANT:
+  - Replace SCRIPT_URL below with your deployed Apps Script Web App URL.
+  - The frontend sends JSON including proofBase64 if a proof file is attached.
+*/
+const scriptURL = 'https://script.google.com/macros/s/AKfycbweGfCv4MNo5Z0LPlc_u861aLJghfc5dDQmSAC3bmV-Fteaxav2Ce3hPdRLMmibUYso/exec'; // <<--- paste here
+const PAYPAL_LINK_PLACEHOLDER = "https://paypal.me/yourlinkhere"; // edit later
 
+const continueBtn = document.getElementById('continueBtn');
+const orderForm = document.getElementById('orderForm');
+const checkoutSection = document.getElementById('checkoutSection');
+const bankOption = document.getElementById('bankOption');
+const paypalOption = document.getElementById('paypalOption');
+const paymentDetails = document.getElementById('paymentDetails');
+const paidCheck = document.getElementById('paidCheck');
+const proofUpload = document.getElementById('proofUpload');
+const proofFile = document.getElementById('proofFile');
+const submitOrderBtn = document.getElementById('submitOrderBtn');
+const overlay = document.getElementById('overlay');
+const resultMsg = document.getElementById('resultMsg');
+let currentOrderData = null;
+let currentOrderId = '';
 
-document.getElementById('orderForm').addEventListener('submit', async (e)=>{
-e.preventDefault();
-const f = new FormData(e.target);
-const payload = {
-name: f.get('name'),
-email: f.get('email'),
-quantity: f.get('quantity'),
-payment: f.get('payment'),
-proof: f.get('proof') || ''
-};
-
-
-try{
-// Using no-cors to avoid CORS errors in simple setup. If you deploy Apps Script with correct permissions, remove mode: 'no-cors'.
-await fetch(SCRIPT_URL, {
-method: 'POST',
-headers: {'Content-Type':'application/json'},
-body: JSON.stringify(payload)
+continueBtn.addEventListener('click', () => {
+  // simple validation
+  const name = orderForm.name.value.trim();
+  const email = orderForm.email.value.trim();
+  const quantity = orderForm.quantity.value;
+  if(!name || !email || !quantity){ alert('Please fill name, email, quantity'); return; }
+  // create order on server (without proof yet)
+  showOverlay("Creating your order...");
+  const payload = {
+    name, email, quantity, payment: orderForm.payment.value, proofBase64: '', proofFilename: ''
+  };
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(res => {
+    hideOverlay();
+    if(res && res.status === 'ok'){
+      currentOrderId = res.orderId;
+      currentOrderData = payload;
+      orderForm.style.display = 'none';
+      checkoutSection.style.display = 'block';
+      resultMsg.textContent = `✅ Order created: ${currentOrderId}. Please choose payment method and upload proof if you have paid.`;
+    } else {
+      alert('Error creating order. Try again.');
+    }
+  })
+  .catch(err => {
+    hideOverlay();
+    console.error(err);
+    alert('Network error. Try again.');
+  });
 });
-alert('Your order has been submitted. We will check the payment and deliver the accounts.');
-e.target.reset();
-}catch(err){
-console.error(err);
-alert('Error sending order. Please try again later.');
+
+bankOption.addEventListener('click', () => {
+  paymentDetails.innerHTML = `
+    <h4>Bank Transfer (demo)</h4>
+    <p>Scan this QR (demo):</p>
+    <img class="qr" src="https://via.placeholder.com/220x220.png?text=Demo+QR" alt="Demo QR">
+    <p><b>Account Name:</b> TECHRECOVERY</p>
+    <p><b>Bank:</b> Demo Bank</p>
+    <p><b>Message:</b> Order ID: <b>${currentOrderId}</b></p>
+  `;
+});
+
+paypalOption.addEventListener('click', () => {
+  const link = PAYPAL_LINK_PLACEHOLDER + `?note=${encodeURIComponent(currentOrderId)}`;
+  paymentDetails.innerHTML = `
+    <h4>PayPal</h4>
+    <p>Click the button to pay via PayPal. Add your Order ID in the note.</p>
+    <a href="${link}" target="_blank"><button>Open PayPal</button></a>
+    <p class="small">Order ID: <b>${currentOrderId}</b></p>
+  `;
+});
+
+paidCheck.addEventListener('change', () => {
+  proofUpload.style.display = paidCheck.checked ? 'block' : 'none';
+});
+
+submitOrderBtn.addEventListener('click', async () => {
+  if(!currentOrderId){
+    alert('No order created. Press Continue to Checkout first.');
+    return;
+  }
+
+  // if user ticked paid, require proof file
+  if(paidCheck.checked && (!proofFile.files || proofFile.files.length === 0)){
+    alert('Please attach a proof image.');
+    return;
+  }
+
+  showOverlay("Uploading order and proof. This may take a while. Do not refresh the page...");
+
+  // if proof attached, read as base64
+  let proofBase64 = '', proofFilename = '';
+  if(paidCheck.checked && proofFile.files.length > 0){
+    const file = proofFile.files[0];
+    proofFilename = file.name;
+    // limit ~ 5MB for safety
+    if(file.size > 5 * 1024 * 1024){ hideOverlay(); alert('File too large. Max 5MB.'); return; }
+    proofBase64 = await readFileAsBase64(file);
+    // base64 returns 'data:...;base64,AAAA', we will keep that full string
+  }
+
+  // send update request to Apps Script: include orderId so script can update that exact row
+  const updatePayload = {
+    orderId: currentOrderId,
+    proofBase64: proofBase64,
+    proofFilename: proofFilename,
+    paidConfirmed: paidCheck.checked ? "true" : "false"
+  };
+
+  fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(updatePayload)
+  })
+  .then(r => r.json())
+  .then(res => {
+    hideOverlay();
+    if(res && res.status === 'ok'){
+      resultMsg.textContent = '✅ Order submitted successfully! Please wait for admin confirmation.';
+      submitOrderBtn.disabled = true;
+      // optionally hide form area or show next actions
+    } else {
+      console.error(res);
+      alert('Error submitting proof. Try again.');
+    }
+  })
+  .catch(err => {
+    hideOverlay();
+    console.error(err);
+    alert('Network error - try again.');
+  });
+
+});
+
+function readFileAsBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file); // result like "data:image/png;base64,AAAA..."
+  });
 }
-});
+
+function showOverlay(text){
+  document.getElementById('overlayText').textContent = text;
+  overlay.style.display = 'flex';
+}
+function hideOverlay(){
+  overlay.style.display = 'none';
+}
 </script>
 </body>
 </html>
